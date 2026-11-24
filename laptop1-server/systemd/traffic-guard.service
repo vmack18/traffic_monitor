@@ -1,0 +1,30 @@
+[Unit]
+Description=Traffic Guard - Inline Detection Proxy (DoS/DDoS + payload inspection)
+After=network.target traffic-origin.service
+Requires=traffic-origin.service
+Documentation=file:///opt/traffic-guard/detection_proxy.py
+
+[Service]
+Type=simple
+User=trafficguard
+Group=trafficguard
+WorkingDirectory=/opt/traffic-guard
+ExecStart=/usr/bin/python3 /opt/traffic-guard/detection_proxy.py --config /opt/traffic-guard/config.json --log-file /var/log/traffic-guard/proxy.log
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=traffic-guard
+
+# The proxy needs to open sockets but nothing else
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/traffic-guard
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

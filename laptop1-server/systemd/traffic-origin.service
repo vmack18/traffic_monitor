@@ -1,0 +1,29 @@
+[Unit]
+Description=Traffic Guard - Protected Origin Server (loopback only)
+After=network.target
+Documentation=file:///opt/traffic-guard/protected_server.py
+
+[Service]
+Type=simple
+User=trafficguard
+Group=trafficguard
+WorkingDirectory=/opt/traffic-guard
+ExecStart=/usr/bin/python3 /opt/traffic-guard/protected_server.py --host 127.0.0.1 --port 9000 --log-file /var/log/traffic-guard/origin.log
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=traffic-origin
+
+# Hardening: the origin only needs loopback + no privileges
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/traffic-guard
+CapabilityBoundingSet=
+AmbientCapabilities=
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

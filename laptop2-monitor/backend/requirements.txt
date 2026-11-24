@@ -1,0 +1,9 @@
+# LAPTOP 2 - Python monitoring backend
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+pydantic>=2.6,<3.0
+websockets>=12,<16
+
+# Optional: network-level packet sensor (SYN/UDP/ICMP flood, port scans).
+# Needs root or CAP_NET_RAW.  The backend runs fine without it.
+scapy>=2.5,<3.0

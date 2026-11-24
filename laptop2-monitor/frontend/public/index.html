@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traffic Guard — Real-Time DoS/DDoS Monitor</title>
+  <meta name="description" content="Real-time server traffic monitoring with inline DoS/DDoS and malicious-payload detection." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ============================ TOP BAR ============================ -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2 L20 6 V12 C20 17 16.5 20.5 12 22 C7.5 20.5 4 17 4 12 V6 Z" />
+            <path d="M8.5 12 L11 14.5 L15.5 9.5" />
+          </svg>
+        </div>
+        <div>
+          <h1>Traffic<span>Guard</span></h1>
+          <div class="sub">Network Operations Center</div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+
+      <div class="conn" id="conn">
+        <span class="dot"></span>
+        <span id="connText">Connecting…</span>
+      </div>
+
+      <div class="clock" id="clock">--:--:--</div>
+    </header>
+
+    <!-- ============================ KPI ROW ============================ -->
+    <section class="kpis">
+      <div class="kpi" style="--accent: var(--cyan)">
+        <div class="label">Total Requests</div>
+        <div class="value" id="kpiTotal">0</div>
+        <div class="foot" id="kpiTotalFoot">all time</div>
+      </div>
+      <div class="kpi" style="--accent: var(--blue)">
+        <div class="label">Req / sec</div>
+        <div class="value" id="kpiRps">0.0</div>
+        <div class="foot">current throughput</div>
+      </div>
+      <div class="kpi" style="--accent: var(--red)">
+        <div class="label">Blocked</div>
+        <div class="value" id="kpiBlocked">0</div>
+        <div class="foot" id="kpiBlockedFoot">malicious / rate</div>
+      </div>
+      <div class="kpi" style="--accent: var(--orange)">
+        <div class="label">Active Incidents</div>
+        <div class="value" id="kpiIncidents">0</div>
+        <div class="foot" id="kpiIncidentsFoot">0 total raised</div>
+      </div>
+      <div class="kpi" style="--accent: var(--violet)">
+        <div class="label">Unique Sources</div>
+        <div class="value" id="kpiSources">0</div>
+        <div class="foot">distinct client IPs</div>
+      </div>
+      <div class="kpi" style="--accent: var(--green)">
+        <div class="label">Allowed</div>
+        <div class="value" id="kpiAllowed">0</div>
+        <div class="foot">clean traffic passed</div>
+      </div>
+    </section>
+
+    <!-- ============================ NETWORK TOPOLOGY ================== -->
+    <section class="panel topo-panel">
+      <div class="panel-head">
+        <h2>Network Topology</h2>
+        <span class="hint">live flow graph · blocked paths highlighted</span>
+        <div class="spacer"></div>
+        <div class="topo-switch" id="topoSwitch" role="group" aria-label="Topology layout">
+          <button type="button" data-topo="star" class="active">Star</button>
+          <button type="button" data-topo="tree">Tree</button>
+          <button type="button" data-topo="mesh">Mesh</button>
+          <button type="button" data-topo="ring">Ring</button>
+          <button type="button" data-topo="bus">Bus</button>
+          <button type="button" data-topo="hybrid">Hybrid</button>
+        </div>
+      </div>
+      <div class="panel-body topo-body">
+        <div class="topo-stage" id="topoStage">
+          <svg id="topoGraph" viewBox="0 0 1000 432" preserveAspectRatio="xMidYMid meet"
+               role="img" aria-label="Live network topology graph"></svg>
+          <div class="topo-legend">
+            <span class="item" style="color:var(--green)"><span class="line solid"></span> allowed flow</span>
+            <span class="item" style="color:var(--amber)"><span class="line"></span> flagged flow</span>
+            <span class="item" style="color:var(--red)"><span class="line"></span> blocked flow</span>
+            <span class="item" style="color:var(--violet)"><span class="line"></span> telemetry</span>
+          </div>
+          <div class="topo-tooltip" id="topoTooltip"></div>
+        </div>
+        <aside class="topo-side">
+          <h3>Graph summary</h3>
+          <div class="topo-stat-grid">
+            <div class="topo-stat"><div class="k">Nodes</div><div class="v" id="topoNodes">0</div></div>
+            <div class="topo-stat"><div class="k">Links</div><div class="v" id="topoLinks">0</div></div>
+            <div class="topo-stat"><div class="k">Blocked flows</div><div class="v red" id="topoBlockedLinks">0</div></div>
+            <div class="topo-stat"><div class="k">Blocked sources</div><div class="v amber" id="topoBlockedNodes">0</div></div>
+          </div>
+          <h3>Selected node</h3>
+          <div class="topo-detail" id="topoDetail">
+            <div class="name">Inline Detection Proxy</div>
+            <div class="role">edge gate</div>
+            <div class="kv"><span>Requests</span><b id="topoDetailReq">0</b></div>
+            <div class="kv"><span>Blocked</span><b id="topoDetailBlk">0</b></div>
+            <div class="kv"><span>Upstream</span><b>origin :9000</b></div>
+            <div class="hintline">Hover or click a node to inspect it. Click a source to filter the blocked-context table.</div>
+          </div>
+          <h3>Top blocked sources</h3>
+          <div id="topoTopBlocked" class="topo-detail" style="min-height:0;padding:8px 10px">
+            <div class="hintline">No blocked sources yet.</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============================ THREAT LEVEL ======================= -->
+    <section class="grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Threat Level</h2>
+          <div class="spacer"></div>
+          <span class="chip" id="healthChip">healthy</span>
+        </div>
+        <div class="panel-body">
+          <div class="gauge-wrap">
+            <div class="gauge">
+              <svg width="132" height="132" viewBox="0 0 132 132">
+                <circle cx="66" cy="66" r="56" fill="none" stroke="rgba(90,140,220,0.12)" stroke-width="11" />
+                <circle id="gaugeArc" cx="66" cy="66" r="56" fill="none" stroke="var(--green)"
+                        stroke-width="11" stroke-linecap="round"
+                        stroke-dasharray="351.86" stroke-dashoffset="351.86"
+                        style="transition: stroke-dashoffset 0.6s ease, stroke 0.6s ease" />
+              </svg>
+              <div class="center">
+                <div class="num" id="riskNum">0</div>
+                <div class="cap">risk score</div>
+              </div>
+            </div>
+            <div class="gauge-meta">
+              <div class="state" id="riskState" style="color:var(--green)">All Clear</div>
+              <div class="desc" id="riskDesc">No active threats. Traffic is flowing normally through the inline detection gate.</div>
+            </div>
+          </div>
+
+          <div style="margin-top:18px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="padding:11px 13px;border-radius:10px;background:rgba(10,18,34,.6);border:1px solid var(--border)">
+              <div style="font-size:10.5px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase">Critical</div>
+              <div class="mono" id="sevCritical" style="font-size:20px;font-weight:700;color:var(--red);margin-top:4px">0</div>
+            </div>
+            <div style="padding:11px 13px;border-radius:10px;background:rgba(10,18,34,.6);border:1px solid var(--border)">
+              <div style="font-size:10.5px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase">High</div>
+              <div class="mono" id="sevHigh" style="font-size:20px;font-weight:700;color:var(--orange);margin-top:4px">0</div>
+            </div>
+            <div style="padding:11px 13px;border-radius:10px;background:rgba(10,18,34,.6);border:1px solid var(--border)">
+              <div style="font-size:10.5px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase">Medium</div>
+              <div class="mono" id="sevMedium" style="font-size:20px;font-weight:700;color:var(--amber);margin-top:4px">0</div>
+            </div>
+            <div style="padding:11px 13px;border-radius:10px;background:rgba(10,18,34,.6);border:1px solid var(--border)">
+              <div style="font-size:10.5px;letter-spacing:1px;color:var(--text-faint);text-transform:uppercase">Low</div>
+              <div class="mono" id="sevLow" style="font-size:20px;font-weight:700;color:var(--text-dim);margin-top:4px">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ INCIDENTS + PACKETS + SOURCES ===== -->
+    <section class="grid-3">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Incident Feed</h2>
+          <div class="spacer"></div>
+          <span class="chip" id="incidentChip">live</span>
+        </div>
+        <div class="panel-body">
+          <div class="feed" id="incidentFeed">
+            <div class="empty"><div class="big">🛡️</div>No incidents yet.<br />Detection engine is watching.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Live Packet Stream</h2>
+          <div class="spacer"></div>
+          <span class="chip" id="packetChip">0 pkts</span>
+        </div>
+        <div class="panel-body" style="padding-top:8px">
+          <div class="table-wrap" style="max-height:330px">
+            <table>
+              <thead>
+                <tr><th>Time</th><th>Source</th><th>Req</th><th>Verdict</th></tr>
+              </thead>
+              <tbody id="packetBody">
+                <tr><td colspan="4" class="empty" style="padding:22px">Waiting for traffic…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Top Sources</h2>
+          <div class="spacer"></div>
+          <span class="chip">by requests</span>
+        </div>
+        <div class="panel-body">
+          <div class="bars" id="topSources">
+            <div class="empty">No data yet.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ BLOCKED + RULES + PATHS =========== -->
+    <section class="grid-3">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Blocked IPs</h2>
+          <div class="spacer"></div>
+          <span class="chip" id="blockedChip">0</span>
+        </div>
+        <div class="panel-body">
+          <!-- manual IP block: type any address, or pull the protected server IP -->
+          <form class="block-form" id="blockForm" autocomplete="off">
+            <div class="block-form-row">
+              <input class="block-input" id="blockIp" name="ip" type="text"
+                     placeholder="IP to block  e.g. 192.168.56.10" spellcheck="false"
+                     aria-label="IP address to block" />
+              <button class="block-submit" type="submit">Block IP</button>
+            </div>
+            <div class="block-form-row">
+              <input class="block-input block-input-sm" id="blockReason" name="reason"
+                     type="text" placeholder="reason (optional)" maxlength="80"
+                     aria-label="Reason for block" />
+              <select class="block-select" id="blockTtl" aria-label="Block duration">
+                <option value="60">1 min</option>
+                <option value="300">5 min</option>
+                <option value="600" selected>10 min</option>
+                <option value="3600">1 hour</option>
+                <option value="86400">24 hours</option>
+                <option value="0">permanent</option>
+              </select>
+            </div>
+            <div class="block-form-foot">
+              <span class="server-tag" id="serverTag" title="Protected origin configured on Laptop 1">
+                <span class="dot"></span> server: <b id="serverIpLabel">—</b>
+              </span>
+              <button class="server-block-btn" id="blockServerBtn" type="button"
+                      title="Insert the protected server IP and block it">
+                ⛔ Block server IP
+              </button>
+            </div>
+            <div class="block-error" id="blockError" hidden></div>
+          </form>
+
+          <div class="block-list" id="blockList">
+            <div class="empty">No IPs currently blocked.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Top Attack Signatures</h2>
+          <div class="spacer"></div>
+          <span class="chip">malicious content</span>
+        </div>
+        <div class="panel-body">
+          <div class="tags" id="topRules">
+            <div class="empty">No signatures triggered.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Top Paths</h2>
+          <div class="spacer"></div>
+          <span class="chip">requested</span>
+        </div>
+        <div class="panel-body">
+          <div class="bars" id="topPaths">
+            <div class="empty">No data yet.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Regex Attack Rule Catalog</h2>
+        <span class="hint">all active REGEX_RULES signatures</span>
+        <div class="spacer"></div>
+        <span class="chip" id="regexRuleCount">Loading rules…</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctx-table-wrap">
+          <table class="ctx-table">
+            <thead>
+              <tr>
+                <th>Signature</th>
+                <th>Attack Type</th>
+                <th>Severity</th>
+                <th>Description</th>
+                <th>Regex Pattern</th>
+                <th>Hits</th>
+              </tr>
+            </thead>
+            <tbody id="regexRules">
+              <tr><td colspan="6" class="empty" style="padding:26px">Loading regex rules…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ BLOCKED REQUEST CONTEXT =========== -->
+    <section class="panel context-panel">
+      <div class="panel-head">
+        <h2>Blocked Request Context</h2>
+        <span class="hint">exactly what the inline gate stopped, and why</span>
+        <div class="spacer"></div>
+        <div class="ctx-toolbar">
+          <div class="ctx-filters" id="ctxFilters" role="group" aria-label="Blocked reason filter">
+            <button type="button" data-filter="all" class="active">All</button>
+            <button type="button" data-filter="malicious">Malicious</button>
+            <button type="button" data-filter="rate">Rate / DoS</button>
+            <button type="button" data-filter="blocklist">Blocklist</button>
+          </div>
+          <input class="ctx-search" id="ctxSearch" type="text"
+                 placeholder="filter by IP, path, rule…" spellcheck="false"
+                 aria-label="Filter blocked requests" />
+          <button class="ctx-clear-filter" id="ctxClearFilters" type="button" hidden>
+            Clear filters
+          </button>
+        </div>
+      </div>
+      <div class="panel-body ctx-body">
+        <div class="ctx-summary">
+          <div class="ctx-stat">
+            <div class="k">Blocked events</div>
+            <div class="v red" id="ctxTotal">0</div>
+            <div class="s" id="ctxTotalSub">persisted decisions</div>
+          </div>
+          <div class="ctx-stat">
+            <div class="k">Active blocks</div>
+            <div class="v amber" id="ctxActiveBlocks">0</div>
+            <div class="s">IPs on the shared blocklist</div>
+          </div>
+          <div class="ctx-stat">
+            <div class="k">Top reason</div>
+            <div class="v" id="ctxTopReason">—</div>
+            <div class="s" id="ctxTopReasonSub">no blocks recorded</div>
+          </div>
+          <div class="ctx-stat">
+            <div class="k">Top signature</div>
+            <div class="v violet" id="ctxTopRule">—</div>
+            <div class="s" id="ctxTopRuleSub">no payload findings</div>
+          </div>
+        </div>
+
+        <div class="ctx-table-wrap">
+          <table class="ctx-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Source</th>
+                <th>Request</th>
+                <th>Reason</th>
+                <th>Attack Type</th>
+                <th>Severity</th>
+                <th>Signature</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ctxBody">
+              <tr><td colspan="8" class="empty" style="padding:26px">Waiting for blocked traffic…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ FOOTER ============================ -->
+    <footer class="footer">
+      <div class="arch">
+        <span class="node">Client</span>
+        <span class="arrow">→</span>
+        <span class="node">Inline Detection Proxy :8080</span>
+        <span class="arrow">→</span>
+        <span class="node">Protected Origin :9000</span>
+        <span class="arrow">⋯</span>
+        <span class="node">Python Backend :8000</span>
+        <span class="arrow">→</span>
+        <span class="node">Node/TS Dashboard</span>
+      </div>
+      <div id="footerStatus">Traffic Guard v1.0</div>
+    </footer>
+  </div>
+
+  <!-- ============================ BLOCKED CONTEXT DRAWER ============= -->
+  <div class="ctx-backdrop" id="ctxBackdrop"></div>
+  <aside class="ctx-drawer" id="ctxDrawer" aria-hidden="true" aria-label="Blocked request detail">
+    <div class="ctx-drawer-head">
+      <span class="title">Blocked request context</span>
+      <div class="spacer"></div>
+      <button class="ctx-close" id="ctxClose" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="ctx-drawer-body" id="ctxDrawerBody"></div>
+  </aside>
+
+  <div class="toast-host" id="toastHost"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

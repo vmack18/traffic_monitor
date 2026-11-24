@@ -1,0 +1,11 @@
+# LAPTOP 1 (Ubuntu Server VM) - detection proxy + protected origin
+# Everything is standard-library except nothing at all:
+#   protected_server.py  -> asyncio only
+#   detection_proxy.py   -> asyncio + urllib only
+#   malicious.py         -> re/base64/math only
+#
+# So there is nothing to pip-install.  This file is kept so that
+# `pip install -r requirements.txt` is a harmless no-op in automation.
+#
+# Optional (only if you want the extra network-level sniffer on this VM too):
+# scapy==2.5.0
